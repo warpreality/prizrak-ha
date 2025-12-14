@@ -19,6 +19,7 @@ CONTROL_WS = "wss://monitoring.tecel.ru/api/Control"
 SIGNALR_GET_DEVICES = "GetDevices"
 SIGNALR_GET_DEVICE_INFO = "GetDeviceInfoTp"
 SIGNALR_SET_CONNECTION_ACTIVITY = "SetConnectionActivity"
+SIGNALR_WATCH_DEVICE = "WatchDevice"
 
 # SignalR методы - управление
 SIGNALR_GUARD_ON = "GuardOn"

@@ -64,6 +64,9 @@ class PrizrakDataUpdateCoordinator(DataUpdateCoordinator):
             # Добавление обработчика сообщений для обновления данных
             self.api.add_message_handler(self._handle_signalr_message)
             
+            # Подписка на обновления устройства
+            await self.api.async_watch_device(self.device_id)
+            
             self._ping_task = asyncio.create_task(self._signalr_ping())
         except Exception as err:
             _LOGGER.warning("Не удалось подключиться к SignalR: %s", err)
@@ -71,45 +74,25 @@ class PrizrakDataUpdateCoordinator(DataUpdateCoordinator):
     def _handle_signalr_message(self, message: dict) -> None:
         """Обработка сообщения от SignalR и обновление данных."""
         try:
-            # Обработка различных типов сообщений от SignalR
             message_type = message.get("type")
+            target = message.get("target")
             
-            if message_type == 1:  # Invocation
-                # Ответ на команду
-                invocation_id = message.get("invocationId")
-                result = message.get("result")
-                error = message.get("error")
-                
-                if error:
-                    _LOGGER.error("Ошибка в ответе SignalR: %s", error)
-                elif result:
-                    _LOGGER.debug("Результат команды: %s", result)
+            # Обработка EventObject (телеметрия от WatchDevice)
+            if message_type == 1 and target == "EventObject":
+                arguments = message.get("arguments", [])
+                for arg in arguments:
+                    device_id = arg.get("device_id")
+                    device_state = arg.get("device_state")
                     
-            elif message_type == 3:  # Completion
-                # Завершение вызова
-                pass
-                
-            elif message_type == 6:  # Ping
-                # Ping сообщение, отвечаем pong
-                pass
-                
-            elif message_type == 7:  # Close
-                # Закрытие соединения
+                    if device_id == self.device_id and device_state:
+                        # Парсим и обновляем данные
+                        parsed_state = self.api._parse_device_state({"device_state": device_state})
+                        self.async_set_updated_data(parsed_state)
+                        _LOGGER.debug("Данные обновлены через EventObject")
+                return
+            
+            if message_type == 7:  # Close
                 _LOGGER.warning("SignalR соединение закрыто сервером")
-                
-            else:
-                # Обновление состояния устройства
-                # Пытаемся извлечь данные о состоянии из сообщения
-                if "arguments" in message:
-                    state_data = message["arguments"]
-                    if isinstance(state_data, list) and len(state_data) > 0:
-                        device_data = state_data[0]
-                        if isinstance(device_data, dict):
-                            # Обновляем данные координатора
-                            current_data = self.data.copy() if self.data else {}
-                            current_data.update(device_data)
-                            self.async_set_updated_data(current_data)
-                            _LOGGER.debug("Данные обновлены через SignalR: %s", device_data)
                             
         except Exception as err:
             _LOGGER.error("Ошибка при обработке сообщения SignalR: %s", err)

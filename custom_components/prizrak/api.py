@@ -24,6 +24,7 @@ from .const import (
     SIGNALR_GET_DEVICES,
     SIGNALR_GET_DEVICE_INFO,
     SIGNALR_SET_CONNECTION_ACTIVITY,
+    SIGNALR_WATCH_DEVICE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -341,28 +342,54 @@ class PrizrakAPI:
             raise PrizrakAPIError(f"Ошибка получения состояния: {err}") from err
 
     def _parse_device_state(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Парсинг состояния устройства из данных SignalR."""
-        # Извлекаем данные из разных возможных форматов
-        state_data = data.get("state") or data.get("data") or data
+        """Парсинг состояния устройства из данных SignalR (EventObject)."""
+        # Извлекаем device_state из EventObject или используем data напрямую
+        state_data = data.get("device_state") or data.get("state") or data.get("data") or data
+        
+        # Маппинг состояния охраны
+        guard_state = state_data.get("guard", "")
+        state_text = "Неизвестно"
+        if "SafeGuard" in str(guard_state):
+            state_text = "В охране"
+        elif guard_state == "Off":
+            state_text = "Снято с охраны"
+        
+        valet = state_data.get("valet", "")
+        if valet == "On":
+            state_text = "Сервисный режим"
         
         return {
-            "state": state_data.get("state_text") or state_data.get("state") or "Неизвестно",
-            "balance": state_data.get("balance") or state_data.get("Balance"),
-            "temperature_outside": state_data.get("temp_out") or state_data.get("temperature_outside"),
-            "temperature_engine": state_data.get("temp_engine") or state_data.get("temperature_engine"),
-            "temperature_interior": state_data.get("temp_in") or state_data.get("temperature_interior"),
-            "voltage": state_data.get("voltage") or state_data.get("Voltage"),
-            "rpm": state_data.get("rpm") or state_data.get("RPM") or 0,
-            "fuel": state_data.get("fuel") or state_data.get("Fuel"),
-            "speed": state_data.get("speed") or state_data.get("Speed") or 0,
-            "mileage": state_data.get("mileage") or state_data.get("Mileage"),
-            "autolaunch": state_data.get("autolaunch") or state_data.get("autolaunch_time"),
-            "guard": state_data.get("guard") or state_data.get("is_guard"),
-            "valet": state_data.get("valet") or state_data.get("is_valet"),
-            "engine": state_data.get("engine") or state_data.get("is_engine"),
-            "lat": state_data.get("lat") or state_data.get("latitude"),
-            "lon": state_data.get("lon") or state_data.get("longitude"),
+            "state": state_text,
+            "balance": state_data.get("balance"),
+            "temperature_outside": state_data.get("outside_temp"),
+            "temperature_engine": state_data.get("engine_temp"),
+            "temperature_interior": state_data.get("inside_temp"),
+            "voltage": state_data.get("accum_voltage"),
+            "rpm": state_data.get("rpm") or 0,
+            "fuel": state_data.get("fuel_level"),
+            "speed": state_data.get("speed") or 0,
+            "mileage": state_data.get("mileage"),
+            "autolaunch": state_data.get("autolaunch"),
+            "guard": guard_state,
+            "valet": valet,
+            "engine": state_data.get("ignition_switch"),
+            "lat": state_data.get("latitude"),
+            "lon": state_data.get("longitude"),
+            "connected": state_data.get("connected"),
         }
+
+    async def async_watch_device(self, device_id: int) -> None:
+        """Подписка на обновления устройства через WatchDevice."""
+        try:
+            if not self._websocket:
+                await self.async_connect_signalr()
+            
+            _LOGGER.debug("Подписка на устройство %s", device_id)
+            await self.async_send_signalr_command(
+                SIGNALR_WATCH_DEVICE, [{"device_id": device_id}]
+            )
+        except Exception as err:
+            _LOGGER.warning("Ошибка при подписке на устройство: %s", err)
 
     def _get_empty_state(self) -> dict[str, Any]:
         """Возвращает пустое состояние."""
@@ -548,10 +575,19 @@ class PrizrakAPI:
                         if message_type == 1:
                             target = data.get("target")
                             arguments = data.get("arguments", [])
-                            _LOGGER.debug("SignalR уведомление: %s, args: %s", target, arguments)
+                            _LOGGER.debug("SignalR уведомление: %s", target)
+                            
+                            # Обработка EventObject (телеметрия от WatchDevice)
+                            if target == "EventObject":
+                                for arg in arguments:
+                                    device_id = arg.get("device_id")
+                                    device_state = arg.get("device_state")
+                                    if device_id and device_state:
+                                        self.update_device_state(device_id, device_state)
+                                        _LOGGER.debug("Обновлено состояние устройства %s", device_id)
                             
                             # Обработка обновлений состояния
-                            if target in ("DeviceStateUpdate", "StateUpdate", "DeviceUpdate"):
+                            elif target in ("DeviceStateUpdate", "StateUpdate", "DeviceUpdate"):
                                 for arg in arguments:
                                     device_id = arg.get("device_id") or arg.get("id")
                                     if device_id:
