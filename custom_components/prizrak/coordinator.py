@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import PrizrakAPI, PrizrakAPIError
@@ -23,7 +24,7 @@ class PrizrakDataUpdateCoordinator(DataUpdateCoordinator):
         """Инициализация координатора."""
         self.entry = entry
         self.api = PrizrakAPI(
-            hass.helpers.aiohttp_client.async_get_clientsession(),
+            async_get_clientsession(hass),
             entry.data[CONF_EMAIL],
             entry.data[CONF_PASSWORD],
         )
