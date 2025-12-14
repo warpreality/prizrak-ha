@@ -12,7 +12,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import PrizrakAPI, PrizrakAPIError
-from .const import CONF_DEVICE_ID, CONF_EMAIL, CONF_PASSWORD, SIGNALR_PING_INTERVAL
+from .const import (
+    CONF_DEVICE_ID,
+    CONF_EMAIL,
+    CONF_PASSWORD,
+    SIGNALR_PING_INTERVAL,
+    SIGNALR_SET_CONNECTION_ACTIVITY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
