@@ -1,0 +1,17 @@
+{
+  "domain": "prizrak",
+  "name": "Призрак",
+  "codeowners": ["@maxis"],
+  "config_flow": true,
+  "documentation": "https://github.com/maxis/prizrak-ha",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/maxis/prizrak-ha/issues",
+  "requirements": [
+    "aiohttp>=3.8.0",
+    "websockets>=11.0",
+    "pycryptodome>=3.15.0"
+  ],
+  "version": "0.1.0"
+}
+

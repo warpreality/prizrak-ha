@@ -1,0 +1,7 @@
+{
+  "name": "Призрак",
+  "render_readme": true,
+  "domains": ["prizrak"],
+  "iot_class": "Cloud Polling"
+}
+
