@@ -40,18 +40,19 @@ class PrizrakDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="prizrak",
-            update_interval=timedelta(seconds=30),
+            update_interval=None,  # Отключаем polling, данные через SignalR
         )
 
         self._ping_task: asyncio.Task | None = None
 
     async def _async_update_data(self) -> dict:
         """Получение данных от API."""
-        try:
-            data = await self.api.async_get_device_state(self.device_id)
-            return data
-        except PrizrakAPIError as err:
-            raise UpdateFailed(f"Ошибка при обновлении данных: {err}") from err
+        # Возвращаем кешированные данные (обновляются через SignalR EventObject)
+        if self.data:
+            return self.data
+        
+        # Первоначальная загрузка — пустое состояние
+        return self.api._get_empty_state()
 
     async def async_config_entry_first_refresh(self) -> None:
         """Первоначальное обновление и подключение SignalR."""
