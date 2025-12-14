@@ -55,7 +55,11 @@ class PrizrakConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 # Получение списка устройств
                 devices = await api.async_get_devices()
-                self._devices = {device["id"]: device["name"] for device in devices}
+                # API возвращает device_id, а не id
+                self._devices = {
+                    device.get("device_id") or device.get("id"): device.get("name", "Unknown")
+                    for device in devices
+                }
 
                 if not self._devices:
                     errors["base"] = "no_devices"
