@@ -477,8 +477,13 @@ class PrizrakAPI:
             access_token_encoded = urllib.parse.quote(access_token_str)
             ws_url = f"{CONTROL_WS}?id={token_param}&access_token={access_token_encoded}"
 
+            # Создаём SSL context в executor чтобы избежать blocking call
+            import ssl
+            loop = asyncio.get_event_loop()
+            ssl_context = await loop.run_in_executor(None, ssl.create_default_context)
+
             # Подключение к WebSocket
-            self._websocket = await websockets.connect(ws_url)
+            self._websocket = await websockets.connect(ws_url, ssl=ssl_context)
             
             # Отправка SignalR handshake
             handshake_message = json.dumps({"protocol": "json", "version": 1}) + "\u001e"

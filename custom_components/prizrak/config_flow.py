@@ -84,7 +84,8 @@ class PrizrakConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            device_id = user_input[CONF_DEVICE_ID]
+            device_id_str = user_input[CONF_DEVICE_ID]
+            device_id = int(device_id_str)
 
             # Проверка на дубликат
             await self.async_set_unique_id(f"{self._email}_{device_id}")
